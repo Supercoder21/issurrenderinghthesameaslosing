@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Extra Enhanced EKG Simulation with Noise Bumps</title>
+  <style>
+    /* Scientific dark theme */
+    body {
+      margin: 0;
+      height: 100vh;
+      background-color: #000;
+      color: #0f0;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    #ekgText {
+      margin-top: 20px;
+      font-size: 1.2em;
+      color: #8B0000;
+      font-family: 'Times New Roman';
+      max-width: 60vw; /* Sets the maximum width to 60% of the viewport width */
+  word-wrap: break-word; /* Ensures long words break to prevent overflow */
+  white-space: normal;
+    }
+  </style>
+</head>
+<body>
+  <canvas id="ekgCanvas" width="800" height="200"></canvas>
+  <div id="ekgText">&nbsp&nbsp&nbsp&nbspHuh, so the library, we already talked about that yesterday, didn’t we?” I didn’t wait for a nod, I was old enough to know I wasn’t going to get one.<br><br><b>Tap to continue...<b></div>
+
+  <script>
+    // Canvas setup
+    const canvas = document.getElementById('ekgCanvas');
+    const ctx = canvas.getContext('2d');
+    const width = canvas.width, height = canvas.height;
+    const baseline = height / 2;
+
+    // Deterioration controls: tapCount increases arrhythmia severity (max = flatline)
+    let tapCount = 0;
+    const maxTaps = 8;
+
+    // Define an "extra enhanced" beat pattern with three segments
+    // Segment 1: P wave + PR segment (16 points)
+    const pSegment = [0, 1.5, 3, 4.5, 6, 6, 5, 4, 3, 2, 1, 0, 0, 0, 0, 0];
+    // Segment 2: QRS complex (33 points) with peaks spaced farther apart
+    const qrsSegment = [
+       0,  -2,  -4,  -6,  -8, -10, -12, -14, -16, -18, -20,
+      -10,   0,  10,  20,  30,  40, 45, 50, 55, 60, 60, 60,
+       55,  50,  45,  40,  30,  20,  10,   0,  -5, -10, -5, 0
+    ];
+    // Segment 3: T wave (16 points)
+    const tSegment = [0.5, 1, 1.5, 2, 2, 1.5, 1, 0.5, 0, 0, 0, 0, 0, 0, 0, 0];
+
+    // Concatenate segments into one full beat pattern (65 points total)
+    const enhancedPattern = pSegment.concat(qrsSegment, tSegment);
+    let beatLength = enhancedPattern.length;
+
+    // Create a buffer for the drawn ECG (one value per x pixel)
+    let ekgData = new Array(width).fill(baseline);
+
+    // Beat timing variables
+    let beatPhase = 0;
+    let beatTimer = 0;
+    const beatInterval = 60; // frames between beats
+
+    // Variables for noise "bumps"
+    let noiseBump = 0;
+    let noiseTimer = 0;
+    const noiseUpdateInterval = 50;  // update noise every 50 frames
+
+    // Function: get offset from pattern with extra modulation for deterioration
+    function getBeatOffset(phase, deterioration) {
+      let base = enhancedPattern[phase % beatLength];
+      // Add extra modulation for central parts if deterioration > 3
+      if (deterioration > 3 && phase % beatLength > 8 && phase % beatLength < beatLength - 8) {
+        base += Math.sin((phase / beatLength) * Math.PI) * (deterioration - 3) * 1.2;
+      }
+      return base;
+    }
+
+    // Main animation loop
+    function animate() {
+      updateEKG();
+      drawEKG();
+      requestAnimationFrame(animate);
+    }
+
+    // Update ekgData buffer: shift left one pixel, append new value with noise bump applied
+    function updateEKG() {
+      ekgData.shift();
+      beatTimer++;
+      let newVal = baseline;
+      if (beatTimer >= beatInterval) {
+        beatTimer = 0;
+        beatPhase = 0;
+      }
+      if (beatPhase < beatLength) {
+        let offset = getBeatOffset(beatPhase, tapCount);
+        newVal = baseline - offset;  // subtract to raise the waveform upward
+        beatPhase++;
+      } else {
+        newVal = baseline;
+      }
+
+      // Update noise bump every noiseUpdateInterval frames
+      noiseTimer++;
+      if (noiseTimer >= noiseUpdateInterval) {
+        noiseBump = (Math.random() - 0.5) * tapCount * 5;  // larger noise bump factor
+        noiseTimer = 0;
+      }
+
+      // Add the current noise bump to the new value
+      newVal += noiseBump;
+
+      // If maximum deterioration is reached, output flatline
+      if (tapCount >= maxTaps) {
+        newVal = baseline;
+      }
+
+      ekgData.push(newVal);
+    }
+
+    // Draw the ECG waveform on the canvas
+    function drawEKG() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.beginPath();
+      ctx.moveTo(0, ekgData[0]);
+      for (let i = 1; i < ekgData.length; i++) {
+        ctx.lineTo(i, ekgData[i]);
+      }
+      ctx.strokeStyle = '#0f0';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+
+    // On user tap, increase deterioration and update status text
+    document.addEventListener('click', () => {
+      if (tapCount < maxTaps) tapCount++;
+      let status = "";
+      if (tapCount < 2) status = "\u00A0\u00A0\u00A0\u00A0I remember when I used to get those nightmares, do you remember how I used to clench your hand?”. I looked up at the ceiling, remembering that time, when it was normal. When all was fine. That life of mine, it was too far away. I wanted to hold it, I wanted to keep it, but I couldn’t. I waited for the beep until I responded. “Please, just tell me where you are? I know you are in there somewhere. The doctors are telling me it has spread too much, that you are too far gone. I know somewhere in your mind you still remember me, I know that somewhere in your mind you know what is going on. Right?” I closed my eyes, pushing the tears away, and leaned closer to the bed. He didn't respond.";
+      else if (tapCount < 4) status = "“Are you afraid, Dad. Are you having a nightmare?”";
+      else if (tapCount < 6) status = "He clenched my hands.";
+      else if (tapCount < maxTaps) status = "\u00A0\u00A0\u00A0\u00A0The monitor started to flash red warning lights, my dad's clench became even tighter. 'Dad!', I shouted, trying to signal someone for help. I was stuck, he had taken grasp of me. 'Dad, let go! We still have a chance. Please!' The monitor began to flash more rapidly, I depserately searched around the room, trying to find anyway to save him. Nothing. 'Stop!', I yelled even louder than the first time. The beeping became more intense, clawing at my ears until...";
+      else status = "He's gone. Ending 2/4: Is surrendering the same as losing?";
+      document.getElementById('ekgText').innerText = "" + status;
+    });
